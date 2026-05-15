@@ -1,0 +1,16 @@
+{
+  "name": "dockerdesktoppoc",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "node --check server.js",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Node.js sample app for Docker POC",
+  "dependencies": {
+    "express": "5.2.1"
+  }
+}
