@@ -1,0 +1,339 @@
+# Goal of Your POC
+
+You currently have a normal Java Docker image.
+
+Your POC objective is:
+
+```text id="jlwm7c"
+Convert normal Docker image into hardened image
+and compare security improvements using Docker Scout
+```
+
+You will compare:
+
+| Before       | After                  |
+| ------------ | ---------------------- |
+| Normal image | Hardened image         |
+| More CVEs    | Fewer CVEs             |
+| Larger size  | Smaller size           |
+| Root user    | Non-root user          |
+| Standard JDK | Minimal secure runtime |
+
+---
+
+# Problems in Your Current Dockerfile
+
+Your current Dockerfile:
+
+```dockerfile id="nck8lm"
+FROM openjdk:17-jdk
+```
+
+Issues:
+
+| Problem             | Why                      |
+| ------------------- | ------------------------ |
+| Large base image    | More packages            |
+| More CVEs           | Larger attack surface    |
+| Runs as root        | Security risk            |
+| Full JDK in runtime | Unnecessary tools        |
+| No hardening        | Weak production security |
+
+---
+
+# Step-by-Step POC Using Hardened Images
+
+---
+
+# Step 1 — Replace Runtime Image with Hardened Image
+
+Instead of:
+
+```dockerfile id="tjlwm0"
+FROM openjdk:17-jdk
+```
+
+Use hardened minimal image:
+
+```dockerfile id="jlwmv3"
+FROM eclipse-temurin:17-jre-alpine
+```
+
+---
+
+# Why Better?
+
+| Improvement     | Benefit                |
+| --------------- | ---------------------- |
+| Alpine Linux    | Smaller image          |
+| JRE only        | No compiler tools      |
+| Fewer packages  | Fewer CVEs             |
+| Minimal runtime | Smaller attack surface |
+
+---
+
+# Step 2 — Create Hardened Dockerfile
+
+Use this improved Dockerfile.
+
+```dockerfile id="jlwm3y"
+# =========================
+# Build Stage
+# =========================
+FROM maven:3.9-eclipse-temurin-17 AS build
+
+WORKDIR /app
+
+COPY pom.xml .
+COPY src ./src
+
+RUN mvn clean package -DskipTests
+
+# =========================
+# Runtime Stage (Hardened)
+# =========================
+FROM eclipse-temurin:17-jre-alpine
+
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=build /app/target/*.jar app.jar
+
+# Change ownership
+RUN chown -R appuser:appgroup /app
+
+# Run as non-root
+USER appuser
+
+EXPOSE 8080
+
+CMD ["java", "-jar", "app.jar"]
+```
+
+---
+
+# What Hardening You Added
+
+| Hardening Technique    | Present? |
+| ---------------------- | -------- |
+| Multi-stage build      | ✅        |
+| Minimal runtime        | ✅        |
+| Alpine image           | ✅        |
+| Non-root user          | ✅        |
+| Smaller attack surface | ✅        |
+| Separate build/runtime | ✅        |
+
+---
+
+# Step 3 — Build Normal Image
+
+First build old image.
+
+```bash id="jlwmno"
+docker build -t java-normal .
+```
+
+---
+
+# Step 4 — Build Hardened Image
+
+```bash id="jlwmh2"
+docker build -t java-hardened .
+```
+
+---
+
+# Step 5 — Compare Image Sizes
+
+Run:
+
+```bash id="jlwmsg"
+docker images
+```
+
+Example output:
+
+| Image         | Size  |
+| ------------- | ----- |
+| java-normal   | 1.1GB |
+| java-hardened | 280MB |
+
+---
+
+# Step 6 — Scan Normal Image
+
+Run:
+
+```bash id="jlwmy5"
+docker scout cves java-normal
+```
+
+Observe:
+
+* critical CVEs
+* high vulnerabilities
+
+---
+
+# Step 7 — Scan Hardened Image
+
+```bash id="jlwmsq"
+docker scout cves java-hardened
+```
+
+You should see:
+
+* reduced vulnerabilities
+* fewer critical issues
+
+---
+
+# Step 8 — Generate SBOM
+
+---
+
+# Normal Image
+
+```bash id="jlwmyt"
+docker scout sbom java-normal
+```
+
+---
+
+# Hardened Image
+
+```bash id="jlwmb8"
+docker scout sbom java-hardened
+```
+
+---
+
+# What to Observe in SBOM
+
+Check:
+
+* fewer packages
+* fewer layers
+* smaller dependencies
+
+---
+
+# Step 9 — Compare Results
+
+Create comparison table.
+
+| Metric           | Normal | Hardened |
+| ---------------- | ------ | -------- |
+| Image Size       | High   | Lower    |
+| Critical CVEs    | More   | Fewer    |
+| Attack Surface   | Large  | Smaller  |
+| Root User        | Yes    | No       |
+| Runtime Packages | Many   | Minimal  |
+
+---
+
+# Step 10 — Demo Explanation
+
+You can explain:
+
+```text id="jlwmbw"
+Initially the Docker image used a full OpenJDK runtime which contained more packages and vulnerabilities. We replaced it with a hardened Alpine-based Eclipse Temurin JRE image, added multi-stage builds, and configured a non-root user. After scanning with Docker Scout, the hardened image showed reduced CVEs, smaller image size, and a reduced attack surface.
+```
+
+---
+
+# Optional Advanced Hardening (Very Good for Demo)
+
+---
+
+# Use Distroless Java Image
+
+Even more secure.
+
+Replace runtime with:
+
+```dockerfile id="jlwm71"
+FROM gcr.io/distroless/java17
+```
+
+---
+
+# Why Distroless?
+
+Removes:
+
+* shell
+* package manager
+* debugging tools
+
+Very secure production runtime.
+
+---
+
+# Step 11 — Scan Again
+
+```bash id="jlwmj4"
+docker scout cves java-distroless
+```
+
+Usually lowest CVEs.
+
+---
+
+# POC Workflow Summary
+
+```text id="jlwmu2"
+Create Normal Image
+        ↓
+Scan with Docker Scout
+        ↓
+Observe CVEs
+        ↓
+Replace with Hardened Image
+        ↓
+Add Non-Root User
+        ↓
+Use Minimal Runtime
+        ↓
+Rebuild
+        ↓
+Re-Scan
+        ↓
+Compare Security Improvements
+```
+
+---
+
+# Important Concepts You Are Demonstrating
+
+| Concept           | Description            |
+| ----------------- | ---------------------- |
+| Docker Hardening  | Secure image creation  |
+| Multi-stage Build | Separate build/runtime |
+| Hardened Images   | Minimal secure images  |
+| Docker Scout      | Vulnerability scanning |
+| SBOM              | Dependency inventory   |
+| CVEs              | Vulnerabilities        |
+| Attack Surface    | Exploitable area       |
+
+---
+
+# Recommended Hardened Images for Other POCs
+
+| Technology | Hardened Image                |
+| ---------- | ----------------------------- |
+| Java       | eclipse-temurin:17-jre-alpine |
+| Node.js    | node:22-alpine                |
+| Python     | python:3.12-slim              |
+| Nginx      | nginx:alpine                  |
+
+---
+
+# Official References
+
+* [Eclipse Temurin Images](https://hub.docker.com/_/eclipse-temurin?utm_source=chatgpt.com)
+* [Docker Scout Docs](https://docs.docker.com/scout/?utm_source=chatgpt.com)
+* [Dockerfile Best Practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/?utm_source=chatgpt.com)
+* [Distroless Images](https://github.com/GoogleContainerTools/distroless?utm_source=chatgpt.com)
